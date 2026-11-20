@@ -101,7 +101,7 @@ def test_polygon_projects_every_corner() -> None:
     assert polygon is not None
     reach = 3.0 * HALF
     expected = [(reach, -reach), (reach, reach), (-reach, reach), (-reach, -reach)]
-    for point, (north, east) in zip(polygon, expected):
+    for point, (north, east) in zip(polygon, expected, strict=True):
         assert_close(point, north, east)
 
 

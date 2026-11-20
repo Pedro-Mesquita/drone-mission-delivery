@@ -46,7 +46,10 @@ class OccupancyGrid:
         self._blocked: NDArray[np.bool_] | None = None
 
     def add_observation(self, polygon: Sequence[GroundPoint]) -> bool:
-        """Records one sighting of an obstacle. Returns True if new obstacle cells were confirmed."""
+        """Records one sighting of an obstacle.
+
+        Returns True if it confirmed new obstacle cells, which is when a replan may be needed.
+        """
         before = self._confirmed()
         self._hits[self._rasterize(polygon)] += 1
         added = bool(np.any(self._confirmed() & ~before))
@@ -83,12 +86,18 @@ class OccupancyGrid:
             east=self.east_min + (col + 0.5) * self.cell_size,
         )
 
-    def is_free(self, point: GroundPoint) -> bool:
-        cell = self.cell_of(point)
-        return cell is not None and not self.blocked[cell]
+    def is_free(self, point: GroundPoint, *, inflated: bool = True) -> bool:
+        """Whether `point` is out of the blocked cells.
 
-    def segment_is_free(self, start: GroundPoint, end: GroundPoint) -> bool:
+        With `inflated=False`, only the raw obstacles count.
+        """
+        return self._is_free_in(self.blocked if inflated else self.obstacle, point)
+
+    def segment_is_free(
+        self, start: GroundPoint, end: GroundPoint, *, inflated: bool = True
+    ) -> bool:
         """Whether the straight flight from `start` to `end` stays out of blocked cells."""
+        grid = self.blocked if inflated else self.obstacle
         length = math.hypot(end.north - start.north, end.east - start.east)
         steps = max(1, math.ceil(length / (self.cell_size / 4)))
         for step in range(steps + 1):
@@ -97,9 +106,13 @@ class OccupancyGrid:
                 north=start.north + t * (end.north - start.north),
                 east=start.east + t * (end.east - start.east),
             )
-            if not self.is_free(point):
+            if not self._is_free_in(grid, point):
                 return False
         return True
+
+    def _is_free_in(self, grid: NDArray[np.bool_], point: GroundPoint) -> bool:
+        cell = self.cell_of(point)
+        return cell is not None and not grid[cell]
 
     def _confirmed(self) -> NDArray[np.bool_]:
         return self._hits >= self.config.confirm_hits
