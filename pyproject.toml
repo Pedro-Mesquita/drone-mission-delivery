@@ -9,7 +9,9 @@ description = "Missão: navegar até um destino desviando de obstáculos no chã
 requires-python = ">=3.10"
 dependencies = [
     "drone-mission-core @ git+ssh://git@github.com/puc-aerorio/drone-mission-core.git@develop",
-    "drone-vision-core @ git+ssh://git@github.com/puc-aerorio/drone-vision-core.git@develop",
+    "drone-vision-core[obb] @ git+ssh://git@github.com/puc-aerorio/drone-vision-core.git@develop",
+    "numpy>=1.24",
+    "opencv-python-headless>=4.8",
 ]
 
 [project.optional-dependencies]
@@ -32,3 +34,6 @@ files = ["src", "tests"]
 [tool.ruff]
 target-version = "py310"
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "RUF"]
