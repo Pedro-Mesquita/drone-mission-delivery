@@ -67,7 +67,8 @@ def test_right_roll_moves_the_center_left() -> None:
 
 
 def test_camera_offset_is_rotated_with_the_drone() -> None:
-    camera = Camera(CameraConfig(offset_forward=0.2, offset_right=0.1))
+    config = CameraConfig(width=640, height=640, hfov=1.2, offset_forward=0.2, offset_right=0.1)
+    camera = Camera(config)
     assert_close(ground(320, 320, Pose(0.0, 0.0, 3.0, yaw=math.pi / 2), camera), -0.1, 0.2)
 
 

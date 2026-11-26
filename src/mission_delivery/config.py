@@ -1,11 +1,12 @@
 """Mission parameters.
 
 Values marked provisional are placeholders until the real hardware is known
-(camera model, drone size). Change them here, not in the modules that use them.
+(drone size, camera mounting). Change them here, not in the modules that use them.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 
@@ -18,9 +19,12 @@ class CameraConfig:
     and `offset_right` place the lens relative to the drone's center, in meters.
     """
 
-    width: int = 640  # provisional: same as the synthetic dataset
-    height: int = 640  # provisional
-    hfov: float = 1.2  # provisional, radians
+    # Raspberry Pi Camera Module 3 (IMX708, standard lens), captured by /take_photo
+    # (rpicam-still) at its default resolution. Check on the drone that this resolution
+    # keeps the full field of view.
+    width: int = 1280
+    height: int = 720
+    hfov: float = math.radians(66.0)
     offset_forward: float = 0.0  # provisional
     offset_right: float = 0.0  # provisional
 
