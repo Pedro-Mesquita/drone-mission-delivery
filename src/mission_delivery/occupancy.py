@@ -24,6 +24,10 @@ class OccupancyGrid:
     Everything outside the geofence is an obstacle. `blocked` is the obstacle
     map inflated by the drone radius plus the safety margin, so the planner can
     treat the drone as a point.
+
+    The grid also keeps the ground each photo covered (`add_coverage`): the
+    drone only flies where its whole inflated footprint has been seen
+    (`is_seen`).
     """
 
     def __init__(self, geofence: Sequence[GroundPoint], config: PlannerConfig) -> None:
@@ -44,6 +48,8 @@ class OccupancyGrid:
         self._outside = ~self._rasterize(geofence)
         self._hits = np.zeros((self.rows, self.cols), dtype=np.int32)
         self._blocked: NDArray[np.bool_] | None = None
+        self._seen = np.zeros((self.rows, self.cols), dtype=np.bool_)
+        self._unseen_nearby: NDArray[np.bool_] | None = None
 
     def add_observation(self, polygon: Sequence[GroundPoint]) -> bool:
         """Records one sighting of an obstacle.
@@ -56,6 +62,19 @@ class OccupancyGrid:
         if added:
             self._blocked = None
         return added
+
+    def add_coverage(self, polygon: Sequence[GroundPoint]) -> None:
+        """Records the ground covered by one photo."""
+        self._seen |= self._rasterize(polygon)
+        self._unseen_nearby = None
+
+    def is_seen(self, point: GroundPoint) -> bool:
+        """Whether every cell within the inflation radius of `point` has been seen."""
+        if self._unseen_nearby is None:
+            source = (~self._seen).astype(np.uint8)
+            dilated = cv2.dilate(source, self._disk(), borderType=cv2.BORDER_REPLICATE)
+            self._unseen_nearby = np.asarray(dilated, dtype=np.bool_)
+        return self._is_free_in(self._unseen_nearby, point)
 
     @property
     def obstacle(self) -> NDArray[np.bool_]:

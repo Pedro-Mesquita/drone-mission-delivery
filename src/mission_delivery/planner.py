@@ -2,6 +2,7 @@
 
 Unseen cells count as free: the first plan is the straight line to the goal,
 and the mission replans when the camera confirms an obstacle on the path.
+`seen_prefix` then cuts the plan where it leaves the ground already seen.
 """
 
 from __future__ import annotations
@@ -66,6 +67,38 @@ def path_is_free(grid: OccupancyGrid, start: GroundPoint, waypoints: list[Ground
             return False
         previous = waypoint
     return True
+
+
+def seen_prefix(
+    grid: OccupancyGrid, start: GroundPoint, waypoints: list[GroundPoint]
+) -> list[GroundPoint]:
+    """The part of the flight from `start` through `waypoints` that stays over seen ground.
+
+    Ends at the last point whose inflated footprint has been fully seen; empty
+    if not even `start` qualifies.
+    """
+    if not grid.is_seen(start):
+        return []
+    kept: list[GroundPoint] = []
+    previous = start
+    for waypoint in waypoints:
+        length = math.hypot(waypoint.north - previous.north, waypoint.east - previous.east)
+        steps = max(1, math.ceil(length / (grid.cell_size / 4)))
+        last_seen = previous
+        for step in range(1, steps + 1):
+            t = step / steps
+            point = GroundPoint(
+                north=previous.north + t * (waypoint.north - previous.north),
+                east=previous.east + t * (waypoint.east - previous.east),
+            )
+            if not grid.is_seen(point):
+                if last_seen != previous:
+                    kept.append(last_seen)
+                return kept
+            last_seen = point
+        kept.append(waypoint)
+        previous = waypoint
+    return kept
 
 
 def _astar(blocked: NDArray[np.bool_], start: Cell, goal: Cell) -> list[Cell] | None:
