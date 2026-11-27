@@ -76,7 +76,40 @@ tempo por foto. Precisa de Raspberry Pi OS 64 bits e do mesmo Python usado no
 A instalação é editável: se só o código da missão mudou, basta o `rsync`; o
 `setup.sh` só precisa rodar de novo quando `pi/wheels/` mudar.
 
-### 3. Voar (Pi)
+### 3. Medir a pista e o destino (campo)
+
+Os cantos do `--track` são medidos com o próprio drone, já em metros norte/leste
+a partir do HOME, no mesmo GPS usado no voo:
+
+1. Ligue o drone **no ponto de decolagem**, desarmado, e espere o GPS fixar. A
+   origem norte/leste é onde o EKF pega o GPS, normalmente onde o drone foi
+   ligado: ligue sempre nesse ponto, na medição e no voo.
+2. Com a UAV API rodando, leve o drone na mão até cada canto da pista, na ordem
+   em que se percorre a borda, e leia a posição no Pi:
+
+   ```bash
+   .venv/bin/python - <<'PY'
+   from drone_mission_core import Drone
+   with Drone() as drone:
+       position = drone.get_ned_position()
+       print(f"{position.north:.1f} {position.east:.1f}")
+   PY
+   ```
+
+3. Junte os pares no `--track` (ou em `MissionConfig.track`, no `config.py`):
+   `--track N1 E1 N2 E2 N3 E3 N4 E4`.
+
+Leia cada canto mais de uma vez: valores que variam muito indicam GPS ainda
+instável. Se o drone for desligado e religado em outro lugar, a origem muda e
+a pista precisa ser medida de novo.
+
+O destino de um ensaio é medido do mesmo jeito: leve o drone até o ponto e use o
+par lido em `--target <NORTE> <LESTE>`. Na prova o destino já é informado como
+`(norte, leste, altitude)` a partir do HOME: basta passar norte e leste (a
+altitude é ignorada). Em qualquer caso o destino precisa estar dentro da pista,
+senão a missão recusa na partida.
+
+### 4. Voar (Pi)
 
 A UAV API precisa estar rodando no Pi e conectada à controladora. Rode a missão
 dentro do `tmux`, para ela não morrer se a SSH cair:
@@ -96,7 +129,7 @@ cd drone-mission-delivery
 - `--base-url`: endereço da UAV API, se não for o padrão `http://127.0.0.1:8000`.
 - Ctrl+C: a missão tenta pousar e mostra o erro.
 
-### 4. Trazer os logs (PC)
+### 5. Trazer os logs (PC)
 
 ```bash
 rsync -a <usuario>@<ip-do-pi>:drone-mission-delivery/flight_logs/ flight_logs/
