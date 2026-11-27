@@ -9,12 +9,13 @@ log vêm de `drone-mission-core`; detecção em imagem vem de `drone-vision-core
 ## Instalação
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev]"        # roda o modelo .onnx (onnxruntime)
+pip install -e ".[dev,pt]"     # também o .pt (ultralytics + torch), para exportar
 ```
 
 ## Modelo
 
-O modelo YOLO-OBB não fica no git; é publicado como Release.
+O modelo YOLO-OBB não fica no git; o `.pt` é publicado como Release.
 
 ```bash
 curl -L -o models/ground-obstacle-v2.pt \
@@ -22,6 +23,37 @@ curl -L -o models/ground-obstacle-v2.pt \
 ```
 
 SHA-256: `82abc1966ece5d4b5ad917101ee2eb0296feda982bb62523c5b0d73fd13d08c2`
+
+A missão usa o `.onnx` (roda só com `onnxruntime`, sem torch), exportado do `.pt`
+com entrada fixa 640×384, a proporção das fotos 1280×720 (precisa do extra `pt`):
+
+```bash
+python -c 'from ultralytics import YOLO; YOLO("models/ground-obstacle-v2.pt").export(format="onnx", imgsz=[384, 640], simplify=True)'
+```
+
+Nas fotos 1280×720 ele acha as mesmas caixas que o `.pt`.
+
+## Raspberry Pi
+
+O Pi não precisa de internet nem de acesso aos repositórios da equipe. No PC,
+com o `.onnx` em `models/`:
+
+```bash
+pi/pack.sh 3.11      # versão do Python do Pi (python3 --version); Bookworm = 3.11
+```
+
+Isso baixa para `pi/wheels/` tudo o que a missão usa, compilado para ARM 64 bits.
+Copie o repositório para o Pi e rode lá:
+
+```bash
+rsync -a --exclude .venv --exclude flight_logs --exclude sim ./ pi@<ip-do-pi>:drone-mission-delivery/
+ssh pi@<ip-do-pi> drone-mission-delivery/pi/setup.sh
+```
+
+(`scp -r` também serve, mas copia o `.venv` e os logs do PC à toa.) O `setup.sh`
+cria o `.venv`, instala tudo de `pi/wheels/` e roda o modelo uma vez para
+conferir. Precisa de Raspberry Pi OS 64 bits e do mesmo Python usado no
+`pack.sh`. A UAV API não é instalada por ele.
 
 ## Como a missão voa
 
@@ -46,7 +78,7 @@ python -m mission_delivery.mission --target 28 0 --base-url http://127.0.0.1:802
 ```
 
 `--target` é `NORTE LESTE [ALTITUDE]` em metros a partir do HOME; a altitude é ignorada.
-`--model` troca o arquivo do modelo (padrão `models/ground-obstacle-v2.pt`).
+`--model` troca o arquivo do modelo (padrão `models/ground-obstacle-v2.onnx`; um `.pt` também serve).
 
 ## Simulação (Gazebo + ArduPilot SITL)
 

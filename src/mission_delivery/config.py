@@ -76,4 +76,4 @@ class MissionConfig:
     gripper_open_wait: float = 1.0  # seconds after opening, before leaving
     camera_command: str = "rpicam-still"
     camera_resolution: str = "1280x720"
-    model_path: str = "models/ground-obstacle-v2.pt"
+    model_path: str = "models/ground-obstacle-v2.onnx"

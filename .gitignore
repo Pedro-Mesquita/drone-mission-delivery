@@ -29,6 +29,10 @@ flight_logs/
 
 # Modelos treinados (distribuídos via Release do GitHub)
 models/*.pt
+models/*.onnx
+
+# Wheels for the Raspberry Pi (pi/pack.sh)
+pi/wheels/
 
 # Simulation logs
 sim/logs/
