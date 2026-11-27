@@ -10,6 +10,8 @@
 #   MAVPROXY_VENV       ~/venv-ardupilot      (MAVProxy; its python3 must import gz and cv2)
 #   UAV_API_PYTHON      python with uav_api installed
 #   UAV_API_CONFIG      UAV API config file (port 8020, udpin 127.0.0.1:17171)
+#   WORLD               world in sim/worlds, without .sdf (default: cartolinas_track);
+#                       make_world.py generates the others and prints their mission command
 #   GUI=1               open the Gazebo window instead of running headless
 #   LOG_DIR             where the three logs go (default: sim/logs)
 set -euo pipefail
@@ -21,6 +23,8 @@ MAVPROXY_VENV="${MAVPROXY_VENV:-$HOME/venv-ardupilot}"
 UAV_API_PYTHON="${UAV_API_PYTHON:?set UAV_API_PYTHON to a python with uav_api installed}"
 UAV_API_CONFIG="${UAV_API_CONFIG:?set UAV_API_CONFIG to the UAV API config file}"
 LOG_DIR="${LOG_DIR:-$SIM_DIR/logs}"
+WORLD_FILE="$SIM_DIR/worlds/${WORLD:-cartolinas_track}.sdf"
+[[ -f "$WORLD_FILE" ]] || { echo "no world $WORLD_FILE: run sim/make_world.py first" >&2; exit 1; }
 mkdir -p "$LOG_DIR"
 
 export GZ_SIM_SYSTEM_PLUGIN_PATH="$ARDUPILOT_GAZEBO/build${GZ_SIM_SYSTEM_PLUGIN_PATH:+:$GZ_SIM_SYSTEM_PLUGIN_PATH}"
@@ -36,9 +40,9 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 if [[ "${GUI:-0}" == "1" ]]; then
-  gz sim -r "$SIM_DIR/worlds/cartolinas_track.sdf" > "$LOG_DIR/gz.log" 2>&1 &
+  gz sim -r "$WORLD_FILE" > "$LOG_DIR/gz.log" 2>&1 &
 else
-  gz sim -s -r --headless-rendering "$SIM_DIR/worlds/cartolinas_track.sdf" > "$LOG_DIR/gz.log" 2>&1 &
+  gz sim -s -r --headless-rendering "$WORLD_FILE" > "$LOG_DIR/gz.log" 2>&1 &
 fi
 pids+=($!)
 until gz topic -l 2>/dev/null | grep -q "^/mission/cam$"; do sleep 1; done

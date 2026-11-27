@@ -30,6 +30,7 @@ testpaths = ["tests"]
 strict = true
 python_version = "3.10"
 files = ["src", "tests"]
+mypy_path = "sim"
 
 [tool.ruff]
 target-version = "py310"

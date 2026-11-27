@@ -60,8 +60,15 @@ class MissionConfig:
     track: tuple[tuple[float, float], ...] = ((-2.0, -5.0), (32.0, -5.0), (32.0, 5.0), (-2.0, 5.0))
     waypoint_tolerance: float = 0.3  # horizontal meters
     arrival_timeout: float = 60.0  # seconds to reach a waypoint before landing
-    settle_speed: float = 0.15  # m/s: below this the drone is considered stopped
-    settle_timeout: float = 10.0  # seconds
+    # The drone counts as stopped once its ground speed stays at or below
+    # `settle_speed` for `settle_hold` seconds in a row: right after arriving it is
+    # still braking, tilted and drifting to the waypoint, which moves the photos.
+    settle_speed: float = 0.05  # m/s
+    settle_hold: float = 1.0  # seconds
+    settle_timeout: float = 10.0  # seconds before taking the photos anyway
+    # Meters on the ground, from each edge of the photo, where a missing detection
+    # does not clear a pending cell: a cartolina cut by the edge is often missed.
+    clear_border: float = 0.7
     min_progress: float = 0.05  # meters: a shorter flight means the drone is stuck
     poll_interval: float = 0.2  # seconds
     gripper_channel: int = 9
