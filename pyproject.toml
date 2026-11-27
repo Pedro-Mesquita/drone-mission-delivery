@@ -9,13 +9,15 @@ description = "Missão: navegar até um destino desviando de obstáculos no chã
 requires-python = ">=3.10"
 dependencies = [
     "drone-mission-core @ git+ssh://git@github.com/puc-aerorio/drone-mission-core.git@develop",
-    "drone-vision-core[obb] @ git+ssh://git@github.com/puc-aerorio/drone-vision-core.git@develop",
+    "drone-vision-core[onnx] @ git+ssh://git@github.com/puc-aerorio/drone-vision-core.git@develop",
     "numpy>=1.24",
     "opencv-python-headless>=4.8",
 ]
 
 [project.optional-dependencies]
 dev = ["mypy>=1.10", "pytest>=8.0", "ruff>=0.5"]
+# Runs or exports the .pt model (ultralytics + torch); not needed on the Pi.
+pt = ["drone-vision-core[obb] @ git+ssh://git@github.com/puc-aerorio/drone-vision-core.git@develop"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
