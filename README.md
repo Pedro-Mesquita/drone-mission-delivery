@@ -33,7 +33,8 @@ Foto a foto, sempre a 4 m de altura:
    obstáculo quando aparece em 2 das 3 fotos. O chão coberto pela foto fica marcado como visto.
 4. Planeja com A* até o alvo e voa só a parte da rota sobre chão já visto (com a margem
    de segurança em volta do drone). Volta ao passo 2.
-5. No destino, abre o gripper (canal 9, PWM 1400) e volta ao HOME do mesmo jeito, onde pousa.
+5. No destino, abre o gripper (canal 9, PWM 1400) e volta ao HOME do mesmo jeito, foto a foto,
+   com o mapa recomeçando vazio (o que foi visto na ida não conta). No HOME, pousa.
 
 Pousa onde está se não houver caminho livre ou se uma foto falhar 5 vezes. Em qualquer
 outro erro (inclusive Ctrl+C), tenta pousar e mostra o erro. Os valores (altura, número
