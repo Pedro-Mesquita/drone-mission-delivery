@@ -44,25 +44,71 @@ Nas fotos 1280×720 ele acha as mesmas caixas que o `.pt`.
 
 ## Raspberry Pi
 
-O Pi não precisa de internet nem de acesso aos repositórios da equipe. No PC,
-com o `.onnx` em `models/`:
+A missão roda no próprio Pi; o PC só prepara os pacotes, copia o repositório e
+acompanha pela SSH. O Pi não precisa de internet nem de acesso aos repositórios
+da equipe. Nos comandos, `<usuario>@<ip-do-pi>` é o acesso SSH ao Pi.
+
+### 1. Empacotar (PC, com internet)
+
+Na `main`, com o `.onnx` em `models/` (ver Modelo) e acesso SSH à `puc-aerorio`
+(as libs são montadas a partir da `develop`):
 
 ```bash
-pi/pack.sh 3.11      # versão do Python do Pi (python3 --version); Bookworm = 3.11
+ssh <usuario>@<ip-do-pi> python3 --version   # ex.: Python 3.11.2 → 3.11
+pi/pack.sh 3.11
 ```
 
 Isso baixa para `pi/wheels/` tudo o que a missão usa, compilado para ARM 64 bits.
-Copie o repositório para o Pi e rode lá:
+Rode de novo quando as libs ou as dependências mudarem.
+
+### 2. Copiar e instalar (Pi, sem internet)
 
 ```bash
-rsync -a --exclude .venv --exclude flight_logs --exclude sim ./ pi@<ip-do-pi>:drone-mission-delivery/
-ssh pi@<ip-do-pi> drone-mission-delivery/pi/setup.sh
+rsync -a --exclude .venv --exclude flight_logs --exclude sim ./ <usuario>@<ip-do-pi>:drone-mission-delivery/
+ssh <usuario>@<ip-do-pi> drone-mission-delivery/pi/setup.sh
 ```
 
 (`scp -r` também serve, mas copia o `.venv` e os logs do PC à toa.) O `setup.sh`
-cria o `.venv`, instala tudo de `pi/wheels/` e roda o modelo uma vez para
-conferir. Precisa de Raspberry Pi OS 64 bits e do mesmo Python usado no
+cria o `.venv`, instala tudo de `pi/wheels/` e roda o modelo uma vez, mostrando o
+tempo por foto. Precisa de Raspberry Pi OS 64 bits e do mesmo Python usado no
 `pack.sh`. A UAV API não é instalada por ele.
+
+A instalação é editável: se só o código da missão mudou, basta o `rsync`; o
+`setup.sh` só precisa rodar de novo quando `pi/wheels/` mudar.
+
+### 3. Voar (Pi)
+
+A UAV API precisa estar rodando no Pi e conectada à controladora. Rode a missão
+dentro do `tmux`, para ela não morrer se a SSH cair:
+
+```bash
+ssh <usuario>@<ip-do-pi>
+tmux new -s missao            # se a SSH cair: tmux attach -t missao
+cd drone-mission-delivery
+.venv/bin/python -m mission_delivery.mission --target <NORTE> <LESTE> \
+    --track <N1> <E1> <N2> <E2> <N3> <E3> <N4> <E4>
+```
+
+- `--target`: destino em metros a partir do ponto de decolagem (HOME).
+- `--track`: cantos da pista real em metros a partir do HOME (3 ou mais pares).
+  Sem ele vale a pista provisória de `config.py` (30 × 10 m): no campo, passe
+  sempre a pista medida.
+- `--base-url`: endereço da UAV API, se não for o padrão `http://127.0.0.1:8000`.
+- Ctrl+C: a missão tenta pousar e mostra o erro.
+
+### 4. Trazer os logs (PC)
+
+```bash
+rsync -a <usuario>@<ip-do-pi>:drone-mission-delivery/flight_logs/ flight_logs/
+```
+
+### Antes do primeiro voo real
+
+- Confira no Pi que o `rpicam-still` funciona (o `/take_photo` da UAV API usa ele).
+- Veja o tempo por foto mostrado pelo `setup.sh`: são 3 fotos por parada e cerca
+  de 75 paradas em cada perna (ida e volta) de 15 m; confira se cabe na bateria.
+- Comece com um `--target` curto, com a cerca do Mission Planner ativa como
+  proteção extra.
 
 ## Como a missão voa
 
