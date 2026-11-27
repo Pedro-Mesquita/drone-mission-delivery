@@ -89,6 +89,10 @@ class FakeDrone:
     def get_heading(self) -> float:
         return self.heading
 
+    def has_arrived_ned(self, target: NedPosition, tolerance: float, *,
+                        horizontal: bool = False) -> bool:
+        return self.get_ned_position().is_within(target, tolerance, horizontal=horizontal)
+
 
 @dataclass
 class FakeDetector:

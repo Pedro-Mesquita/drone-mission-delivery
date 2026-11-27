@@ -154,7 +154,9 @@ def _fly_to(drone: Drone, waypoint: GroundPoint, config: MissionConfig) -> None:
     target = NedPosition(north=waypoint.north, east=waypoint.east, altitude=config.altitude)
     drone.go_to_ned(target)
     deadline = time.monotonic() + config.arrival_timeout
-    while _distance(_ground(drone.get_ned_position()), waypoint) > config.waypoint_tolerance:
+    # Ground distance only: altitude does not decide arrival. The mission core
+    # writes the real position to the flight log on arrival.
+    while not drone.has_arrived_ned(target, config.waypoint_tolerance, horizontal=True):
         if time.monotonic() >= deadline:
             raise ArrivalTimeoutError(f"did not reach {waypoint} in {config.arrival_timeout:.0f} s")
         time.sleep(config.poll_interval)
