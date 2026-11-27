@@ -21,6 +21,9 @@ class OccupancyGrid:
     """Ground grid in NED, row = north, column = east.
 
     A cell becomes an obstacle after `confirm_hits` observations, and stays one.
+    Until then a sighted cell is pending: it blocks the planner like an
+    obstacle, and a photo that shows it clearly with no detection
+    (`clear_unconfirmed`) frees it.
     Everything outside the geofence is an obstacle. `blocked` is the obstacle
     map inflated by the drone radius plus the safety margin, so the planner can
     treat the drone as a point.
@@ -58,10 +61,22 @@ class OccupancyGrid:
         """
         before = self._confirmed()
         self._hits[self._rasterize(polygon)] += 1
-        added = bool(np.any(self._confirmed() & ~before))
-        if added:
-            self._blocked = None
-        return added
+        self._blocked = None  # new pending cells
+        return bool(np.any(self._confirmed() & ~before))
+
+    def clear_unconfirmed(
+        self, area: Sequence[GroundPoint], detected: Sequence[Sequence[GroundPoint]]
+    ) -> None:
+        """Records a photo that showed `area` clearly with only `detected` in it:
+        the pending cells of `area` outside `detected` go back to free.
+
+        `area` must leave out the photo's edges, where a cut cartolina is often missed.
+        """
+        shown = self._rasterize(area)
+        for polygon in detected:
+            shown &= ~self._rasterize(polygon)
+        self._hits[shown & ~self._confirmed()] = 0
+        self._blocked = None
 
     def add_coverage(self, polygon: Sequence[GroundPoint]) -> None:
         """Records the ground covered by one photo."""
@@ -77,15 +92,20 @@ class OccupancyGrid:
         return self._is_free_in(self._unseen_nearby, point)
 
     @property
+    def pending(self) -> NDArray[np.bool_]:
+        """Cells sighted at least once but neither confirmed nor cleared."""
+        return (self._hits > 0) & ~self._confirmed()
+
+    @property
     def obstacle(self) -> NDArray[np.bool_]:
         """Confirmed obstacle cells and cells outside the geofence, not inflated."""
         return self._confirmed() | self._outside
 
     @property
     def blocked(self) -> NDArray[np.bool_]:
-        """Cells the drone's center must not enter."""
+        """Cells the drone's center must not enter: obstacles and pending cells, inflated."""
         if self._blocked is None:
-            source = self.obstacle.astype(np.uint8)
+            source = (self.obstacle | self.pending).astype(np.uint8)
             inflated = cv2.dilate(source, self._disk(), borderType=cv2.BORDER_REPLICATE)
             self._blocked = np.asarray(inflated, dtype=np.bool_)
         return self._blocked

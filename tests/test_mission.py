@@ -10,11 +10,14 @@ from drone_vision_core import ObbDetection, OrientedBox, Point
 from numpy.typing import NDArray
 
 from mission_delivery.config import CameraConfig, MissionConfig, PlannerConfig
-from mission_delivery.mission import HOME, Mission, run
+from mission_delivery.mission import HOME, Mission, _wait_until_stopped, main, run
+from mission_delivery.occupancy import OccupancyGrid
+from mission_delivery.perception import observe
 from mission_delivery.projection import Camera, GroundPoint
 
 CAMERA = Camera(CameraConfig())
-FAST = MissionConfig(poll_interval=0.0, gripper_open_wait=0.0, settle_timeout=0.0)
+FAST = MissionConfig(poll_interval=0.0, gripper_open_wait=0.0, settle_timeout=0.0,
+                     settle_hold=0.0)
 TARGET = GroundPoint(north=28.0, east=0.0)
 CARTOLINA = (0.5, 0.66)
 _, _JPEG = cv2.imencode(".jpg", np.zeros((720, 1280, 3), dtype=np.uint8))
@@ -51,6 +54,7 @@ class FakeDrone:
     photo_failures: int = 0
     photos: int = 0
     fail_go_to: bool = False
+    drift_per_photo: float = 0.0  # meters north the drone moves while taking each photo
 
     def arm(self) -> None:
         pass
@@ -67,6 +71,8 @@ class FakeDrone:
 
     def take_photo(self, *, command: str, resolution: str) -> bytes:
         self.photos += 1
+        self.position = GroundPoint(self.position.north + self.drift_per_photo,
+                                    self.position.east)
         if self.photo_failures:
             self.photo_failures -= 1
             raise RuntimeError("TAKE_PHOTO_FAIL: no camera")
@@ -257,3 +263,45 @@ def test_an_unexpected_error_lands_and_is_raised() -> None:
 def test_a_target_outside_the_track_is_rejected() -> None:
     with pytest.raises(ValueError, match="outside the track"):
         Mission(target=GroundPoint(north=10.0, east=8.0), detector=FakeDetector(FakeDrone(), []))
+
+
+@pytest.mark.parametrize("track", [["0", "0", "1", "1"], ["0", "0", "1", "1", "2"]])
+def test_track_needs_three_or_more_pairs(track: list[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["--target", "1", "0", "--track", *track])
+
+
+def test_each_photo_uses_the_pose_read_with_it() -> None:
+    """A drone drifting 0.15 m per photo still puts the cartolina where it is."""
+    drone = FakeDrone(altitude=4.0, drift_per_photo=0.15)
+    box = cartolina(0.8, 0.0)
+    grid = OccupancyGrid([GroundPoint(-5, -5), GroundPoint(10, -5), GroundPoint(10, 5),
+                          GroundPoint(-5, 5)], PlannerConfig())
+
+    observe(drone, FakeDetector(drone, [box]), CAMERA, grid, FAST)  # type: ignore[arg-type]
+
+    south_edge = min(point.north for point in box)
+    assert not grid.is_free(GroundPoint(0.8, 0.0), inflated=False)
+    assert grid.is_free(GroundPoint(south_edge - 0.15, 0.0), inflated=False)
+
+
+@dataclass
+class BrakingDrone:
+    """Ground speeds read one after the other; the last one repeats."""
+
+    speeds: list[float]
+    reads: int = 0
+
+    def get_ned_telemetry(self) -> NedTelemetry:
+        speed = self.speeds[min(self.reads, len(self.speeds) - 1)]
+        self.reads += 1
+        return NedTelemetry(position=NedPosition(), velocity=NedVelocity(speed, 0.0, 0.0))
+
+
+def test_a_single_slow_reading_does_not_count_as_stopped() -> None:
+    drone = BrakingDrone([0.3, 0.04, 0.2, 0.04, 0.0])
+    config = MissionConfig(poll_interval=0.01, settle_hold=0.05, settle_timeout=5.0)
+
+    _wait_until_stopped(drone, config)  # type: ignore[arg-type]
+
+    assert drone.reads > 5  # waited past the dip at 0.04 m/s and the 0.2 m/s spike

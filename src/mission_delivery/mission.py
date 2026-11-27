@@ -12,6 +12,7 @@ Run: python -m mission_delivery.mission --target NORTH EAST [ALTITUDE]
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import logging
 import math
 import time
@@ -144,12 +145,20 @@ def run(drone: Drone, mission: Mission) -> None:
 
 
 def _wait_until_stopped(drone: Drone, config: MissionConfig) -> None:
+    """Returns once the ground speed stayed at or below `settle_speed` for
+    `settle_hold` seconds in a row, or after `settle_timeout`."""
     deadline = time.monotonic() + config.settle_timeout
+    still_since: float | None = None
     while True:
         velocity = drone.get_ned_telemetry().velocity
+        now = time.monotonic()
         if math.hypot(velocity.north, velocity.east) <= config.settle_speed:
-            return
-        if time.monotonic() >= deadline:
+            still_since = now if still_since is None else still_since
+            if now - still_since >= config.settle_hold:
+                return
+        else:
+            still_since = None
+        if now >= deadline:
             _logger.warning("still moving after %.0f s; taking the photos anyway",
                             config.settle_timeout)
             return
@@ -194,11 +203,25 @@ def main(argv: Sequence[str] | None = None) -> None:
         metavar="METERS",
         help="NORTH EAST [ALTITUDE] from HOME; the altitude is ignored",
     )
+    parser.add_argument(
+        "--track",
+        nargs="+",
+        type=float,
+        metavar="METERS",
+        help="geofence as NORTH EAST pairs from HOME, 3 or more corners "
+        "(default: MissionConfig.track)",
+    )
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="UAV API address")
     parser.add_argument("--model", default=MissionConfig().model_path, help="YOLO-OBB weights")
     args = parser.parse_args(argv)
     if len(args.target) not in (2, 3):
         parser.error("--target takes NORTH EAST [ALTITUDE]")
+    config = MissionConfig(model_path=args.model)
+    if args.track is not None:
+        if len(args.track) < 6 or len(args.track) % 2:
+            parser.error("--track takes 3 or more NORTH EAST pairs")
+        corners = tuple(zip(args.track[::2], args.track[1::2], strict=True))
+        config = dataclasses.replace(config, track=corners)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     from drone_vision_core import ObbDetector
@@ -206,7 +229,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     mission = Mission(
         target=GroundPoint(north=args.target[0], east=args.target[1]),
         detector=ObbDetector(args.model),
-        config=MissionConfig(model_path=args.model),
+        config=config,
     )
     with Drone(args.base_url) as drone:
         run(drone, mission)

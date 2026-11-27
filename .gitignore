@@ -32,3 +32,8 @@ models/*.pt
 
 # Simulation logs
 sim/logs/
+
+# Generated simulation scenarios (sim/make_world.py); only the reference track is kept
+sim/assets/
+sim/worlds/*
+!sim/worlds/cartolinas_track.sdf

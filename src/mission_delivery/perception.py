@@ -14,7 +14,7 @@ from numpy.typing import NDArray
 
 from mission_delivery.config import MissionConfig
 from mission_delivery.occupancy import OccupancyGrid
-from mission_delivery.projection import Camera, Pose, polygon_to_ground
+from mission_delivery.projection import Camera, GroundPoint, Pose, polygon_to_ground
 
 _logger = logging.getLogger(__name__)
 
@@ -52,18 +52,31 @@ def observe(
     seen once all photos succeeded. Returns the number of boxes found.
     Raises `PhotoError` when a photo fails `config.photo_attempts` times.
     """
-    pose = current_pose(drone)
     boxes = 0
+    first_pose: Pose | None = None
     for index in range(config.photos_per_stop):
         image, detection = _photo(drone, detector, config, index)
+        # Read right after each photo: a drone still drifting would put every
+        # photo's boxes at a different place if one pose served the whole stop.
+        pose = current_pose(drone)
+        first_pose = first_pose or pose
+        _logger.info("photo %d at north=%.2f east=%.2f heading=%.0f: %d boxes", index + 1,
+                     pose.north, pose.east, math.degrees(pose.yaw), len(detection.boxes))
         scale_x = camera.config.width / image.shape[1]
         scale_y = camera.config.height / image.shape[0]
+        detected = []
         for box in detection.boxes:
             corners = [(x * scale_x, y * scale_y) for x, y in box.corners]
             polygon = polygon_to_ground(corners, camera, pose)
             if polygon is not None:
                 grid.add_observation(polygon)
+                detected.append(polygon)
                 boxes += 1
+        clear_area = _inner_area(camera, pose, config.clear_border)
+        if clear_area is not None:
+            grid.clear_unconfirmed(clear_area, detected)
+    assert first_pose is not None  # photos_per_stop >= 1
+    pose = first_pose
     width, height = camera.config.width, camera.config.height
     footprint = polygon_to_ground([(0, 0), (width, 0), (width, height), (0, height)], camera, pose)
     if footprint is not None:
@@ -77,6 +90,18 @@ def observe(
         config.photos_per_stop,
     )
     return boxes
+
+
+def _inner_area(camera: Camera, pose: Pose, border: float) -> list[GroundPoint] | None:
+    """Ground shown by the photo, minus `border` meters from each edge."""
+    margin = border * camera.focal / pose.height
+    width, height = camera.config.width, camera.config.height
+    if 2 * margin >= min(width, height):
+        return None
+    left, top, right, bottom = margin, margin, width - margin, height - margin
+    area = polygon_to_ground([(left, top), (right, top), (right, bottom), (left, bottom)],
+                             camera, pose)
+    return None if area is None else list(area)
 
 
 def _photo(
