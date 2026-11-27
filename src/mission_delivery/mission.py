@@ -3,8 +3,8 @@
 Photo by photo: the drone stops at the mission altitude, takes several
 photos, marks the cartolinas it sees on the map, plans with A* and flies
 only over ground already seen; then stops again. At the target it opens
-the gripper and returns to HOME the same way, where it lands. With no free
-path, or no usable photo, it lands where it is.
+the gripper and returns to HOME the same way, starting from an empty map,
+where it lands. With no free path, or no usable photo, it lands where it is.
 
 Run: python -m mission_delivery.mission --target NORTH EAST [ALTITUDE]
 """
@@ -48,10 +48,13 @@ class Mission:
     landing_reason: str = ""
 
     def __post_init__(self) -> None:
-        track = [GroundPoint(north, east) for north, east in self.config.track]
-        self.grid = OccupancyGrid(track, self.planner)
+        self.grid = self.empty_grid()
         if not self.grid.is_free(self.target, inflated=False):
             raise ValueError(f"target {self.target} is outside the track")
+
+    def empty_grid(self) -> OccupancyGrid:
+        track = [GroundPoint(north, east) for north, east in self.config.track]
+        return OccupancyGrid(track, self.planner)
 
     @property
     def goal(self) -> GroundPoint:
@@ -103,8 +106,11 @@ def arrived(mission: Mission, drone: Drone) -> str:
         return "LAND"
     drone.set_servo(mission.config.gripper_channel, mission.config.gripper_open_pwm)
     time.sleep(mission.config.gripper_open_wait)
+    # The way back is the same mission towards HOME, starting from an empty
+    # map: nothing seen on the way out counts, so it is photographed again.
     mission.returning = True
-    return "PLAN"
+    mission.grid = mission.empty_grid()
+    return "OBSERVE"
 
 
 def land(mission: Mission, drone: Drone) -> str:

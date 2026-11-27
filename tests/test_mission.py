@@ -198,6 +198,20 @@ def test_the_drone_only_flies_over_ground_already_seen() -> None:
     assert mission.stops > TARGET.north / forward_reach
 
 
+def test_the_way_back_is_photographed_again_from_an_empty_map() -> None:
+    drone, _ = fly_mission([])
+
+    forward_reach = 4.0 * (CAMERA.config.height / 2) / CAMERA.focal
+    arrival = next(i for i, (_, end) in enumerate(drone.flights)
+                   if math.hypot(end.north - TARGET.north, end.east - TARGET.east) <= 0.3)
+    inbound = drone.flights[arrival + 1:]
+    longest = max(math.hypot(end.north - start.north, end.east - start.east)
+                  for start, end in inbound)
+    assert longest < forward_reach
+    assert len(inbound) > TARGET.north / forward_reach
+    assert drone.servo == [(9, 1400)]
+
+
 def test_no_free_path_lands_where_it_is() -> None:
     wall = [cartolina(10.0, east, 90.0) for east in np.arange(-5.0, 5.01, 0.6)]
 
