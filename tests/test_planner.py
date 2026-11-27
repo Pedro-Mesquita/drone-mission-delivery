@@ -7,7 +7,7 @@ import pytest
 
 from mission_delivery.config import PlannerConfig
 from mission_delivery.occupancy import OccupancyGrid
-from mission_delivery.planner import path_is_free, plan_path
+from mission_delivery.planner import path_is_free, plan_path, seen_prefix
 from mission_delivery.projection import GroundPoint as P
 
 CONFIG = PlannerConfig(cell_size=0.1, drone_radius=0.4, safety_margin=0.5, confirm_hits=1)
@@ -128,3 +128,37 @@ def test_planning_is_fast_enough_to_replan_in_hover(cell_size: float) -> None:
     began = time.perf_counter()
     assert plan_path(grid, START, GOAL) is not None
     assert time.perf_counter() - began < 1.0
+
+
+def _seen_rectangle(grid: OccupancyGrid, north_max: float) -> None:
+    grid.add_coverage(
+        [P(-2.0, -5.0), P(north_max, -5.0), P(north_max, 5.0), P(-2.0, 5.0)]
+    )
+
+
+def test_seen_prefix_stops_where_the_seen_ground_ends() -> None:
+    grid = OccupancyGrid(FENCE, CONFIG)
+    _seen_rectangle(grid, 6.0)
+
+    prefix = seen_prefix(grid, START, [P(4.0, 0.0), P(20.0, 0.0)])
+
+    assert prefix[0] == P(4.0, 0.0)
+    end = prefix[-1]
+    assert end.east == pytest.approx(0.0)
+    assert 6.0 - CONFIG.inflation_radius - 2 * CONFIG.cell_size < end.north
+    assert end.north <= 6.0 - CONFIG.inflation_radius
+    assert grid.is_seen(end)
+
+
+def test_seen_prefix_keeps_a_path_fully_seen() -> None:
+    grid = OccupancyGrid(FENCE, CONFIG)
+    _seen_rectangle(grid, 30.0)
+    path = [P(4.0, 1.0), P(12.0, 0.0)]
+
+    assert seen_prefix(grid, START, path) == path
+
+
+def test_seen_prefix_is_empty_when_the_start_was_not_seen() -> None:
+    grid = OccupancyGrid(FENCE, CONFIG)
+
+    assert seen_prefix(grid, START, [P(4.0, 0.0)]) == []

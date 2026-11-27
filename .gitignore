@@ -29,3 +29,6 @@ flight_logs/
 
 # Modelos treinados (distribuídos via Release do GitHub)
 models/*.pt
+
+# Simulation logs
+sim/logs/

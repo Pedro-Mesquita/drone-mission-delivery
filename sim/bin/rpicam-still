@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Simulation stand-in for rpicam-still: see grab_frame.py.
+exec "${SIM_PYTHON:-python3}" "$(dirname "$0")/grab_frame.py" "$@"
