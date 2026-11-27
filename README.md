@@ -24,8 +24,17 @@ curl -L -o models/ground-obstacle-v2.pt \
 
 SHA-256: `82abc1966ece5d4b5ad917101ee2eb0296feda982bb62523c5b0d73fd13d08c2`
 
-A missão usa o `.onnx` (roda só com `onnxruntime`, sem torch), exportado do `.pt`
-com entrada fixa 640×384, a proporção das fotos 1280×720 (precisa do extra `pt`):
+A missão usa o `.onnx` (roda só com `onnxruntime`, sem torch), publicado na mesma Release:
+
+```bash
+curl -L -o models/ground-obstacle-v2.onnx \
+  https://github.com/Pedro-Mesquita/drone-mission-delivery/releases/download/ground-obstacle-v2/ground-obstacle-v2.onnx
+```
+
+SHA-256: `7f9f5f56662c7244012ccfd44f4981c0fd35734b27a31344e86eb9244f05fe34`
+
+Ele foi exportado do `.pt` com entrada fixa 640×384, a proporção das fotos
+1280×720 (precisa do extra `pt`):
 
 ```bash
 python -c 'from ultralytics import YOLO; YOLO("models/ground-obstacle-v2.pt").export(format="onnx", imgsz=[384, 640], simplify=True)'
