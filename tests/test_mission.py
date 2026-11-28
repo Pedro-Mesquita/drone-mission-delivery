@@ -15,7 +15,7 @@ from mission_delivery.occupancy import OccupancyGrid
 from mission_delivery.perception import observe
 from mission_delivery.projection import Camera, GroundPoint
 
-CAMERA = Camera(CameraConfig())
+CAMERA = Camera(CameraConfig(offset_forward=0.0, offset_right=0.0))
 FAST = MissionConfig(poll_interval=0.0, gripper_open_wait=0.0, settle_timeout=0.0,
                      settle_hold=0.0)
 TARGET = GroundPoint(north=28.0, east=0.0)

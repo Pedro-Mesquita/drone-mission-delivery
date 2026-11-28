@@ -25,8 +25,8 @@ class CameraConfig:
     width: int = 1280
     height: int = 720
     hfov: float = math.radians(66.0)
-    offset_forward: float = 0.0  # provisional
-    offset_right: float = 0.0  # provisional
+    offset_forward: float = -0.12  # measured: lens 12 cm behind the center
+    offset_right: float = 0.015  # measured: lens 1.5 cm right of the center
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +34,8 @@ class PlannerConfig:
     """Occupancy grid and path planner."""
 
     cell_size: float = 0.1  # meters
-    drone_radius: float = 0.4  # provisional: half the tip-to-tip width with the gripper
+    # Measured: half the 56 cm propeller tip-to-tip diagonal; the gripper stays inside it.
+    drone_radius: float = 0.28
     safety_margin: float = 0.5  # provisional: covers GPS drift and projection error
     # Observations of a cell before it counts as an obstacle: 2 of the
     # `MissionConfig.photos_per_stop` photos of a stop.

@@ -15,7 +15,7 @@ from mission_delivery.projection import (
     polygon_to_ground,
 )
 
-CONFIG = CameraConfig(width=640, height=640, hfov=1.2)
+CONFIG = CameraConfig(width=640, height=640, hfov=1.2, offset_forward=0.0, offset_right=0.0)
 CAMERA = Camera(CONFIG)
 HALF = math.tan(CONFIG.hfov / 2.0)
 
