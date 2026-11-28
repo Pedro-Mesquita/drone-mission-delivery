@@ -265,6 +265,31 @@ def test_a_target_outside_the_track_is_rejected() -> None:
         Mission(target=GroundPoint(north=10.0, east=8.0), detector=FakeDetector(FakeDrone(), []))
 
 
+FIRST_FLIGHT_TRACK = ((1.0, -1.0), (13.0, 5.0), (11.0, 8.0), (-1.0, 1.0))
+
+
+def test_a_target_near_the_track_edge_is_rejected() -> None:
+    """The first real flight: target 0.22 m inside the edge, landed at the first plan."""
+    config = MissionConfig(track=FIRST_FLIGHT_TRACK)
+    with pytest.raises(ValueError, match=r"target .* too close to the track edge"):
+        Mission(
+            target=GroundPoint(north=12.2, east=5.8),
+            detector=FakeDetector(FakeDrone(), []),
+            config=config,
+        )
+
+
+def test_home_on_the_track_edge_is_rejected() -> None:
+    """The first real flight's track passes through HOME: the way back would fail."""
+    config = MissionConfig(track=FIRST_FLIGHT_TRACK)
+    with pytest.raises(ValueError, match=r"HOME .* too close to the track edge"):
+        Mission(
+            target=GroundPoint(north=6.0, east=3.0),
+            detector=FakeDetector(FakeDrone(), []),
+            config=config,
+        )
+
+
 @pytest.mark.parametrize("track", [["0", "0", "1", "1"], ["0", "0", "1", "1", "2"]])
 def test_track_needs_three_or_more_pairs(track: list[str]) -> None:
     with pytest.raises(SystemExit):

@@ -92,6 +92,11 @@ class OccupancyGrid:
         return self._is_free_in(self._unseen_nearby, point)
 
     @property
+    def inflation(self) -> float:
+        """Meters around each obstacle the drone's center must stay out of."""
+        return self._inflation
+
+    @property
     def pending(self) -> NDArray[np.bool_]:
         """Cells sighted at least once but neither confirmed nor cleared."""
         return (self._hits > 0) & ~self._confirmed()
