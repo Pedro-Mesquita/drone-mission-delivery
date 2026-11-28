@@ -52,6 +52,14 @@ class Mission:
         self.grid = self.empty_grid()
         if not self.grid.is_free(self.target, inflated=False):
             raise ValueError(f"target {self.target} is outside the track")
+        # The planner never ends a path inside the inflated margin of the track edge:
+        # such a target, or HOME for the way back, would land the drone at the first plan.
+        for name, point in (("target", self.target), ("HOME", HOME)):
+            if not self.grid.is_free(point):
+                raise ValueError(
+                    f"{name} {point} is too close to the track edge: keep it "
+                    f"{self.grid.inflation:.2f} m or more inside"
+                )
 
     def empty_grid(self) -> OccupancyGrid:
         track = [GroundPoint(north, east) for north, east in self.config.track]

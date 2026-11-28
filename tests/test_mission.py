@@ -15,7 +15,7 @@ from mission_delivery.occupancy import OccupancyGrid
 from mission_delivery.perception import observe
 from mission_delivery.projection import Camera, GroundPoint
 
-CAMERA = Camera(CameraConfig())
+CAMERA = Camera(CameraConfig(offset_forward=0.0, offset_right=0.0))
 FAST = MissionConfig(poll_interval=0.0, gripper_open_wait=0.0, settle_timeout=0.0,
                      settle_hold=0.0)
 TARGET = GroundPoint(north=28.0, east=0.0)
@@ -263,6 +263,31 @@ def test_an_unexpected_error_lands_and_is_raised() -> None:
 def test_a_target_outside_the_track_is_rejected() -> None:
     with pytest.raises(ValueError, match="outside the track"):
         Mission(target=GroundPoint(north=10.0, east=8.0), detector=FakeDetector(FakeDrone(), []))
+
+
+FIRST_FLIGHT_TRACK = ((1.0, -1.0), (13.0, 5.0), (11.0, 8.0), (-1.0, 1.0))
+
+
+def test_a_target_near_the_track_edge_is_rejected() -> None:
+    """The first real flight: target 0.22 m inside the edge, landed at the first plan."""
+    config = MissionConfig(track=FIRST_FLIGHT_TRACK)
+    with pytest.raises(ValueError, match=r"target .* too close to the track edge"):
+        Mission(
+            target=GroundPoint(north=12.2, east=5.8),
+            detector=FakeDetector(FakeDrone(), []),
+            config=config,
+        )
+
+
+def test_home_on_the_track_edge_is_rejected() -> None:
+    """The first real flight's track passes through HOME: the way back would fail."""
+    config = MissionConfig(track=FIRST_FLIGHT_TRACK)
+    with pytest.raises(ValueError, match=r"HOME .* too close to the track edge"):
+        Mission(
+            target=GroundPoint(north=6.0, east=3.0),
+            detector=FakeDetector(FakeDrone(), []),
+            config=config,
+        )
 
 
 @pytest.mark.parametrize("track", [["0", "0", "1", "1"], ["0", "0", "1", "1", "2"]])
